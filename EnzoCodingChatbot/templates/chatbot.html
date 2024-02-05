@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chatbot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #fff;
+        }
+        .chat-container {
+            width: 100%;
+            height: 100vh;
+            background-color: #fff;
+            border-radius: 0;
+            box-shadow: 0 3px 6px #646464;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-header {
+            background: linear-gradient(to bottom, #4CAF50, #2E7D32);
+            color: #fff;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .chat-body {
+            flex: 1;
+            padding: 20px;
+            overflow-y: scroll;
+            display: flex;
+            flex-direction: column;
+        }
+        .message {
+            margin: 10px 0; 
+            display: flex;
+            align-items: flex-start; 
+        }
+        .user-message {
+            margin-left: auto; 
+            text-align: right;
+        }
+
+        .assistant-message {
+            text-align: left;
+        }
+        .message-content {
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 70%;
+        }
+        .user-message .message-content {
+            background-color: #4CAF50;
+            color: #fff;
+            max-width: 100%;
+        }
+        .assistant-message .message-content {
+            background-color: #d3d3d3;
+            color: #000;
+        }
+        #userInput {
+            padding: 15px;
+            border: none;
+            border-radius: 0;
+            background-color: #d3d3d3;
+            color: #000;
+            flex: 1;
+        }
+        #userInput:focus {
+            outline: none;
+        }
+        #sendButton {
+            padding: 15px 20px;
+            background-color: #4CAF50;
+            color: #fff;
+            border: none;
+            border-radius: 0;
+            cursor: pointer;
+        }
+        #modelSelect {
+            padding: 13px 20px;
+            border: 1px solid #ccc;
+            border-radius: 0;
+            background-color: #f9f9f9;
+            color: #333;
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        #modelSelect:hover {
+            background-color: #ebebeb;
+        }
+        #modelSelect:focus {
+            border-color: #4CAF50;
+            background-color: #fff;
+            color: #000;
+        }
+        .message-content {
+            line-height: 1.5; 
+        }
+        .chat-container.multi-chat {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
+        .chat-container {
+            display: none;
+        }
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #000;
+                color: #fff; 
+            }
+            .chat-container {
+                background-color: #121212; 
+            }
+            #userInput {
+                background-color: #323232;
+                color: #fff;
+            }
+            .assistant-message .message-content {
+                background-color: #323232;
+                color: #fff;
+            }
+            #modelSelect {
+                background-color: #323232;
+                color: #fff;
+                border: 1px solid #121212;
+            }
+            #modelSelect:hover {
+                background-color: #000;
+            }   
+            #modelSelect:focus {
+                background-color: #000;
+                color: #fff;
+            }
+            
+        }
+    </style>
+</head>
+<body>
+    <div class="start-screen" id="startScreen">
+        <h1>Welcome to IGCSE Chatbot</h1>
+        <button id="startButton">Start</button>
+    </div>
+    <div class="chat-container">
+        <div class="chat-header">Chatbot</div>
+        <div class="chat-body" id="chatBody">
+        </div>
+        <div class="message">
+            <select id="modelSelect">
+                <option value="Concept">Concept Mode(Default)</option>
+                <option value="Question">Question Maker Mode (Suggest a mark)</option>
+            </select>
+            <input type="text" id="userInput" placeholder="Type a message...">
+            <button id="sendButton" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+    </div>
+    <div class="message assistant-message" id="assistantMessage">
+        <div class="message-content"></div>
+        <p id="sentimentScore">Sentiment Score (%): </p>
+    </div>
+    <script>
+        const startScreen = document.getElementById('startScreen');
+        const startButton = document.getElementById('startButton');
+        const chatContainer = document.querySelector('.chat-container');
+
+        startButton.addEventListener('click', () => {
+            startScreen.style.display = 'none'; // Hide the start screen
+            chatContainer.style.display = 'block'; // Show the chat interface
+        });
+        const chatBody = document.getElementById('chatBody');
+        const userInput = document.getElementById('userInput');
+        
+
+        function addMessage(role, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + role + '-message';
+
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            printMessage(messageContent, content);
+
+            messageDiv.appendChild(messageContent);
+            chatBody.appendChild(messageDiv);
+
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+        function printMessage(element, content) {
+            let currentIndex = 0;
+            const printInterval = setInterval(() => {
+                if (currentIndex >= content.length) {
+                    clearInterval(printInterval);
+                    userInput.disabled = false; // Re-enable input after printing is done
+                    return;
+                }
+
+                if (content[currentIndex] === '\n') {
+                    element.innerHTML += '<br>';
+                } else {
+                    element.innerHTML += content[currentIndex];
+                }
+                currentIndex++;
+            }, 20);
+
+            userInput.disabled = true; // Disable input while printing
+        }
+
+        let placeholderInterval;
+        let isRendering = false;
+        
+        function sendMessage() {
+            if (isRendering) {
+                return;  // Prevent sending a message while rendering
+            }
+            
+            const message = userInput.value;
+            const selectedModel = document.getElementById('modelSelect').value;
+            if (message.trim() === '') return;
+            isRendering = true;
+            addMessage('user', message);
+            addMessage('assistant', '...');
+            clearInterval(placeholderInterval);
+            placeholderInterval = setInterval(() => {
+                chatBody.removeChild(chatBody.lastChild);
+                if (chatBody.lastChild.textContent === '...') {
+                    addMessage('assistant', '');
+                } else {
+                    addMessage('assistant', '...');
+                }
+            }, 1000);
+
+            fetch('/ask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'message=' + encodeURIComponent(message) + '&model=' + encodeURIComponent(selectedModel)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Received data:', data);  
+                clearInterval(placeholderInterval);
+                chatBody.removeChild(chatBody.lastChild);
+                const assistantMessage = document.getElementById('assistantMessage');
+                const sentimentScoreElement = document.getElementById('sentimentScore');
+
+                addMessage('assistant', data.response);
+                sentimentScoreElement.textContent = 'Sentiment Score (%): ' + data.sentiment_score.toFixed(2);
+                console.log('Sentiment Score Updated');
+
+                isRendering = false;  // Reset the rendering flag
+            });
+            
+            userInput.value = '';
+        }
+        function createNewChat() {
+            const newChatContainer = document.createElement('div');
+            newChatContainer.className = 'chat-container';
+            newChatContainer.innerHTML = `
+                <div class="chat-header">Chatbot</div>
+                <div class="chat-body" id="chatBody${Date.now()}"></div>
+                <div class="message">
+                    <!-- The rest of your input fields and buttons here -->
+                </div>
+                <div class="message assistant-message" id="assistantMessage${Date.now()}">
+                    <div class="message-content"></div>
+                    <p id="sentimentScore${Date.now()}">Sentiment Score (%): </p>
+                </div>
+            `;
+
+            // Append the new chat container to the multi-chat container
+            document.querySelector('.multi-chat').appendChild(newChatContainer);
+
+            // Return the chat body and input elements for this new chat
+            return {
+                chatBody: document.getElementById(`chatBody${Date.now()}`),
+                userInput: newChatContainer.querySelector('#userInput'),
+                assistantMessage: document.getElementById(`assistantMessage${Date.now()}`),
+                sentimentScore: document.getElementById(`sentimentScore${Date.now()}`)
+            };
+        }
+        userInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                if (!isRendering) {
+                    sendMessage();
+                }
+                event.preventDefault(); // Prevent the default Enter key behavior
+            }
+        });
+
+    </script>
+
+</body>
+</html>

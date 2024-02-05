@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>My Chatbot</title>
+    </head>
+    <body>
+        <div id="chatArea">
+        </div>
+        <input type="text" id="userInput" placeholder="Type a message...">
+    </body>
+</html>
+
+<script
+src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js">
+</script>
+<script>
+$(document).ready(function() {
+    $('#userInput').on('keypress', function(e) {
+        if (e.which == 13) { //Detect enter key
+        e.preventDefault(); //Prevent form submission
+        var message = $(this).val();
+        $.post("/ask", {message: message}, function(data) {
+            //Add user's message to the chat area
+            $('<p>').text('You: ' + message).appendTo('#chatArea');
+            // Split the chatbot's response into blocks
+            var blocks = data.split('```');
+            for (var i = 0; i < blocks.length; i++) {
+            // Check if the block is code
+                if (blocks[i].startsWith('python')) {
+                // Remove 'python' and wrap in <pre><code> tags
+                    var code = blocks[i].slice(6);
+$('<pre>').append($('<code>').text(code)).appendTo('#chatArea');
+            } else {
+// Split the block into lines and add each line to the chat area
+                var lines = blocks[i].split('\n');
+                for (var j = 0; j < lines.length; j++) {
+$('<p>').text(lines[j]).appendTo('#chatArea');
+                }
+            }
+        }
+    });
+$(this).val(''); //Clear input field
+}
+});
+});
+</script>
